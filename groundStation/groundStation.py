@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import ConfigParser, fcntl, io, json, os, socket, struct
+import ConfigParser, io, os, socket, struct
 try:
 	import netaddr, netifaces
 except ImportError, e:
@@ -75,10 +75,9 @@ def scan_for_drone(last_ip):
 			return str(last_ip)
 	myiface = ""
 	ifaces = netifaces.interfaces()
-	for tmp_interface in json.loads(CONFIG.get("connection", "interface_by_order")):
-		if tmp_interface in ifaces:
-			myiface = tmp_interface
-			break
+	tmp_interface = CONFIG.get("connection", "drone_last_interface")
+	if tmp_interface in ifaces:
+		myiface = tmp_interface
 	if myiface != "":
 		addrs = netifaces.ifaddresses(myiface)
 		ipinfo = addrs[socket.AF_INET][0]

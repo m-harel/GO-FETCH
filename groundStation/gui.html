@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>WebSocket Client</title>
+	<style>
+		#output {border: solid 1px #000}
+	</style>
+	<link rel="stylesheet" type="text/css" href="./css/style.css" />
+	<link rel="stylesheet" type="text/css" href="./css/my.css" />
+	<!--[if IE]>
+		<script type="text/javascript">
+			 var console = { log: function() {} };
+		</script>
+	<![endif]-->
+	<script type="text/javascript" src="./js/jquery.min.js"></script>
+	<script type="text/javascript" src="./js/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="./js/scrolloverflow.js"></script>
+	<script type="text/javascript" src="./js/jquery.fullPage.js"></script>
+	<script type="text/javascript">
+		var connected = 0; // 0-Not connected, 1-connected to python, 2-connected to drone
+		var auto_reconnect = true;
+		var connect_to_drone = "";
+		var connection_error_flag = false;
+		var socket = null;
+		var host = "ws://127.1.2.0:7120";
+		$(document).ready(function() {
+			$('#fullpage').fullpage({
+				sectionsColor: ['#7E8F7C', '#7E8F7C', '#7E8F7C'],
+				anchors: ['main', 'connection', 'commands'],
+				afterLoad: function(anchorLink, index){
+					if (connected == 2) {
+						if (anchorLink == 'connection') {
+							$("#footer_btn_connect").attr("href","#commands");
+							$("#footer_btn_connect").text("Back to commands");
+						} else if (anchorLink == 'commands') {
+							$("#footer_btn_connect").attr("href","#connection");
+							$("#footer_btn_connect").text("Connection status");
+						} else if (anchorLink == 'main') {
+							$.fn.fullpage.moveTo('commands');
+						}
+					} else {
+						if (anchorLink == 'connection') {
+							$("#footer_btn_connect").attr("href","#main");
+							$("#footer_btn_connect").text("Back to main");
+							if (auto_reconnect) {
+								connectToPython();
+							}
+						} else if (anchorLink == 'commands') {
+							$.fn.fullpage.moveTo('main');
+						} else if (anchorLink == 'main') {
+							$("#footer_btn_connect").attr("href","#connection");
+							$("#footer_btn_connect").text("Click here to connect");
+						}
+					}
+				}
+			});
+			$.fn.fullpage.setKeyboardScrolling(false);
+			$.fn.fullpage.setMouseWheelScrolling(false);
+			$.fn.fullpage.setAllowScrolling(false);
+			$("#user_options_connect").click(function() {
+				$("#user_options_interface").attr('disabled','disabled');
+				$("#user_options_connect").attr('disabled','disabled');
+				connect_to_drone = "l2";
+				connectToDrone($("#user_options_interface option:selected").text());
+			});
+		});
+		function connectToDrone(d) {
+			if (connect_to_drone == "") {
+				$("#footer_connection_status").text("Loading settings");
+				$("#connection_span_status").text("Loading settings.");
+				$("#connection_title").text("Please wait");
+				connect_to_drone = "l0";
+				socket.send(connect_to_drone);
+			} else if (connect_to_drone == "l0") {
+				$("#connection_span_status").text("Local interfaces received.");
+				var array = d.split(',');
+				$('#user_options_interface').empty();
+				$.each(array, function(i, p) {
+					$('#user_options_interface').append($('<option></option>').val(p).html(p));
+				});
+				connect_to_drone = "l1";
+				socket.send(connect_to_drone);
+			} else if (connect_to_drone == "l1") {
+				$("#connection_span_status").text("Last good configuration received.");
+				var array = JSON.parse(d)
+				connect_to_drone = "l9";
+				$("#user_options_interface").val(array["drone_last_interface"]).change();
+				$("#user_options_port").attr("value",array["tcp_port"]);
+				$("#user_options_ip").attr("value",array["drone_last_ip"]);
+				$("#user_options").attr("style","");
+				$("#footer_connection_status").text("Ready to connect");
+				$("#connection_span_status").text("Waiting for user command.");
+				$("#connection_title").text("Ready to connect");
+			} else if (connect_to_drone == "l2") {
+				$("#footer_connection_status").text("Searching");
+				$("#connection_span_status").text("Searching for drones.");
+				$("#connection_title").text("Please wait");
+				connect_to_drone = "l9";
+				socket.send("l2");
+				socket.send(d);
+			}
+		}
+		function connectToPython() {
+			try {
+				console.log("Host:", host);
+				socket = new WebSocket(host);
+				socket.onopen = function (e) {
+					connected = 1;
+					console.log("Socket opened.");
+					$("#footer_connection_status").text("Ready to connect");
+					$("#connection_span_error").text("");
+					auto_reconnect = false;
+					connectToDrone(0);
+					//$.fn.fullpage.moveTo('commands');
+				};
+				socket.onclose = function (e) {
+					connected = 0;
+					console.log("Socket closed.");
+					$("#footer_connection_status").text("Not connected");
+					$("#connection_span_status").text("Not connected.");
+					if (connection_error_flag) {
+						$("#connection_title").text("Error");
+						$("#connection_span_error").html("Error: Check that 'groundStation.py' is running and <a href='javascript:window.location.reload(true)'>retry</a>");
+						connection_error_flag = false;
+					} else {
+						$("#connection_title").text("Connection lost");
+						$("#connection_span_error").html("Error: Lost connection with 'groundStation.py' <a href='javascript:window.location.reload(true)'>retry</a>");
+					}
+					$("#user_options").attr("style","display: none;");
+					$.fn.fullpage.moveTo('connection');
+				};
+				socket.onerror = function (e) {
+					console.log("Socket error.");
+					connection_error_flag = true;
+				};
+				socket.onmessage = function (e) {
+					console.log("Socket message:", e.data);
+					if (connected == 1) {
+						connectToDrone(e.data);
+					} else {
+						var p = document.createElement("p");
+						p.innerHTML = e.data;
+						console.log("Socket HTML message:", p);
+					}
+				};
+			} catch (ex) {
+				console.log("Socket exception:", ex);
+			}
+		}
+	</script>
+</head>
+<body>
+<div id="header">
+	<h2>Welcome to GO-FETCH ground station control</h2>
+</div>
+<div id="footer">Connection status: <span id="footer_connection_status">Not connected</span> - <a id="footer_btn_connect" href="#connection">Click here to connect</a></div>
+<div id="fullpage">
+	<div class="section" id="section_main">
+		<div class="intro">
+			<h1>Ground Station Control</h1>
+			<img src="./img/GO-FETCH.jpg" style="max-width:20%;">
+			<p>You can read more about the project at our <a href="https://github.com/m-harel/GO-FETCH" target="_blank">GitHub page</a></p>
+			<p>Make sure the 'groundStation.py' is running</p>
+			<p>When ready, click "connect" at the bottom of the page</p>
+		</div>
+	</div>
+	<div class="section" id="section_connection">
+		<div class="intro">
+			<h1 id="connection_title">Please wait</h1>
+			<p>Status: <span id="connection_span_status">Connecting...</span></p>
+			<p><span id="connection_span_error"></span></p>
+			<div id="user_options" style="display: none;">
+				<table>
+					<tr>
+						<td>Network interface</td>
+						<td><select id="user_options_interface"></select></td>
+					</tr><tr>
+						<td>Port</td>
+						<td><input id="user_options_port" type="text" value="" size=10 disabled /></td>
+					</tr><tr>
+						<td>Lats connection</td>
+						<td><input id="user_options_ip" type="text" value="" size=10 disabled /></td>
+					</tr>
+				</table>
+				<input id="user_options_connect" type="button" value="Connect to drone" />
+			</div>
+		</div>
+	</div>
+	<div class="section" id="section_commands">
+		<div class="intro">
+			<h1>This is the commands page</h1>
+			<p>Go to <a href="#main">Main</a></p>
+			<p>Go to <a href="#connection">Connection</a></p>
+			<p>Go to <a href="#commands">Commands</a></p>
+		</div>
+	</div>
+</div>
+</body>
+</html>

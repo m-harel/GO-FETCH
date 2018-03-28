@@ -1,0 +1,45 @@
+#footer_btn_connect, #footer_btn_connect:link, #footer_btn_connect:visited {
+    color: #FFFFFF;
+    background-color: #4CAF50;
+}
+#footer_btn_connect {
+    border: none;
+    display: inline-block;
+    padding: 8px 16px;
+    vertical-align: middle;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    background-color: inherit;
+    text-align: center;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    margin-bottom: 16px!important;
+}
+#footer_btn_connect:hover{
+    box-shadow:0 8px 16px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19)
+}
+
+#user_options {
+    width: 500px;
+    margin: 30px auto 0pt;
+}
+#user_options #user_options_connect {
+    width: auto;
+    padding: 4px 8px;
+    margin-top: 15px;
+    font-size: 1.1em;
+}
+#user_options table {
+    width: 100%;
+    border-collapse: collapse;
+}
+#user_options input, #user_options select {
+    width: 100%;
+}
+#user_options td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
