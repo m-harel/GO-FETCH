@@ -3,16 +3,8 @@
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<title>WebSocket Client</title>
-	<style>
-		#output {border: solid 1px #000}
-	</style>
 	<link rel="stylesheet" type="text/css" href="./css/style.css" />
 	<link rel="stylesheet" type="text/css" href="./css/my.css" />
-	<!--[if IE]>
-		<script type="text/javascript">
-			 var console = { log: function() {} };
-		</script>
-	<![endif]-->
 	<script type="text/javascript" src="./js/jquery.min.js"></script>
 	<script type="text/javascript" src="./js/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="./js/scrolloverflow.js"></script>
@@ -22,6 +14,7 @@
 		var auto_reconnect = true;
 		var connect_to_drone = "";
 		var connection_error_flag = false;
+		var connection_scan_flag = false;
 		var socket = null;
 		var host = "ws://127.1.2.0:7120";
 		$(document).ready(function() {
@@ -73,18 +66,23 @@
 				connect_to_drone = "l0";
 				socket.send(connect_to_drone);
 			} else if (connect_to_drone == "l0") {
-				$("#connection_span_status").text("Local interfaces received.");
-				var array = d.split(',');
-				$('#user_options_interface').empty();
-				$.each(array, function(i, p) {
-					$('#user_options_interface').append($('<option></option>').val(p).html(p));
-				});
-				connect_to_drone = "l1";
-				socket.send(connect_to_drone);
+				if (d == "~l3~") {
+					connect_to_drone = "l3";
+					socket.send(connect_to_drone);
+				} else {
+					$("#connection_span_status").text("Local interfaces received.");
+					var array = d.split(',');
+					$('#user_options_interface').empty();
+					$.each(array, function(i, p) {
+						$('#user_options_interface').append($('<option></option>').val(p).html(p));
+					});
+					connect_to_drone = "l1";
+					socket.send(connect_to_drone);
+				}
 			} else if (connect_to_drone == "l1") {
 				$("#connection_span_status").text("Last good configuration received.");
 				var array = JSON.parse(d)
-				connect_to_drone = "l9";
+				connect_to_drone = "l8";
 				$("#user_options_interface").val(array["drone_last_interface"]).change();
 				$("#user_options_port").attr("value",array["tcp_port"]);
 				$("#user_options_ip").attr("value",array["drone_last_ip"]);
@@ -96,9 +94,45 @@
 				$("#footer_connection_status").text("Searching");
 				$("#connection_span_status").text("Searching for drones.");
 				$("#connection_title").text("Please wait");
-				connect_to_drone = "l9";
+				connect_to_drone = "l3";
 				socket.send("l2");
-				socket.send(d);
+				setTimeout(function(){
+					socket.send(d);
+				}, 100);
+			} else if (connect_to_drone == "l3") {
+				if (d == "Done") {
+					$("#connection_span_error").attr("style","");
+					$("#footer_connection_status").text("Connected");
+					$("#connection_span_status").text("Success");
+					$("#connection_title").text("Connected to drone");
+					$("#connection_span_error").text("");
+					connect_to_drone = "l4";
+					socket.send(connect_to_drone);
+				} else if (d == "Failed") {
+					$("#connection_span_error").attr("style","");
+					$("#footer_connection_status").text("Drone not found");
+					$("#connection_span_status").text("Finish without success.");
+					$("#connection_title").text("Drone not found");
+					$("#connection_span_error").text("Error: We didn't found any drone");
+					connect_to_drone = "l9";
+					socket.send(connect_to_drone);
+				} else {
+					if (connection_scan_flag) {
+						$("#connection_span_status").text(d);
+					} else {
+						$("#user_options").attr("style","display: none;");
+						$("#connection_span_error").attr("style","text-align: left;");
+						$("#connection_span_error").html(d);
+						$("#connection_span_status").text("Scanning network interface");
+						connection_scan_flag = true;
+						socket.send(connect_to_drone);
+					}
+				}
+			} else if (connect_to_drone == "l4") {
+				$("#connection_span_status").text(d);
+				connected = 2;
+				connect_to_drone = "l8";
+				$.fn.fullpage.moveTo('commands');
 			}
 		}
 		function connectToPython() {
@@ -168,7 +202,7 @@
 	<div class="section" id="section_connection">
 		<div class="intro">
 			<h1 id="connection_title">Please wait</h1>
-			<p>Status: <span id="connection_span_status">Connecting...</span></p>
+			<p>Status:&nbsp;<span id="connection_span_status">Connecting...</span></p>
 			<p><span id="connection_span_error"></span></p>
 			<div id="user_options" style="display: none;">
 				<table>
